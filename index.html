@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Kerala Bike Ride</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#111;font-family:system-ui,sans-serif;color:#fff}
+#game{position:fixed;inset:0;width:100%;height:100%;display:block;background:#79b9d0}
+#hud{position:fixed;inset:0;pointer-events:none}
+.top{display:flex;justify-content:space-between;padding:12px;gap:8px}.pill{background:#0009;border:1px solid #fff3;border-radius:14px;padding:8px 11px;backdrop-filter:blur(4px)}
+#menu{position:fixed;left:12px;top:65px;background:#000b;border:1px solid #fff3;border-radius:16px;padding:10px;display:none;pointer-events:auto;width:220px}
+button,select{font:inherit;border:0;border-radius:12px;padding:10px;background:#ffffffdd;color:#111}
+button{cursor:pointer}.row{display:flex;gap:7px;margin:7px 0}.row button{flex:1}
+#controls{position:fixed;inset:auto 0 0 0;height:180px;pointer-events:none}
+.ctrl{pointer-events:auto;position:absolute;width:72px;height:72px;border-radius:50%;background:#0009;color:#fff;border:1px solid #fff5;font-size:28px}
+#left{left:22px;bottom:30px}#right{left:108px;bottom:30px}
+#brake{right:110px;bottom:30px;font-size:16px}#gas{right:24px;bottom:30px;font-size:16px}
+#rev{right:68px;bottom:112px;width:64px;height:50px;font-size:14px}
+#help{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);font-size:11px;background:#0008;padding:5px 8px;border-radius:8px}
+@media(min-width:800px){.ctrl{width:82px;height:82px}#left{left:35px}#right{left:135px}}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud">
+  <div class="top">
+    <div class="pill">🏍️ <b>Kerala Bike Ride</b></div>
+    <div class="pill"><span id="speed">0</span> km/h · <span id="place">Alappuzha</span></div>
+    <button id="menuBtn" class="pill">⚙️</button>
+  </div>
+  <div id="menu">
+    <b>Game Settings</b>
+    <div class="row"><button data-g="low">Low</button><button data-g="medium">Medium</button><button data-g="high">High</button></div>
+    <label>Bike<br><select id="bike"><option>Splendor</option><option>RX100</option><option>Passion Pro</option><option>BMW S1000RR</option><option>Ducati Panigale</option><option>Kawasaki Ninja H2R</option></select></label>
+    <div class="row"><button id="dress">👕 Change Dress</button><button id="close">Close</button></div>
+    <small>WASD / arrows · Space = rev</small>
+  </div>
+</div>
+<div id="controls">
+<button id="left" class="ctrl">←</button><button id="right" class="ctrl">→</button>
+<button id="brake" class="ctrl">BRAKE</button><button id="gas" class="ctrl">GAS</button>
+<button id="rev" class="ctrl">REV 🔊</button>
+</div>
+<div id="help">Hold GAS + steer · brake to slow · REV for engine sound</div>
+<script>
+const c=document.getElementById('game'),x=c.getContext('2d');let W,H,dpr;
+function resize(){dpr=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;c.width=W*dpr;c.height=H*dpr;x.setTransform(dpr,0,0,dpr,0,0)}addEventListener('resize',resize);resize();
+
+let bikeName='Splendor', speed=0, steer=0, throttle=false, braking=false, rev=false, t=0, graphics='high', dress=0;
+const places=['Alappuzha','Kochi','Munnar','Kozhikode','Thiruvananthapuram','Varkala','Wayanad','Kumarakom'];
+const keys={};
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key===' ')rev=true});
+addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;if(e.key===' ')rev=false});
+function bind(id,prop){let b=document.getElementById(id);b.onpointerdown=()=>window[prop]=true;b.onpointerup=b.onpointercancel=b.onpointerleave=()=>window[prop]=false}
+bind('gas','throttle');bind('brake','braking');bind('rev','rev');
+document.getElementById('left').onpointerdown=()=>steer=-1;document.getElementById('right').onpointerdown=()=>steer=1;
+for(const id of ['left','right']){let b=document.getElementById(id);b.onpointerup=b.onpointercancel=b.onpointerleave=()=>steer=0}
+document.getElementById('menuBtn').onclick=()=>document.getElementById('menu').style.display='block';
+document.getElementById('close').onclick=()=>document.getElementById('menu').style.display='none';
+document.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>graphics=b.dataset.g);
+document.getElementById('bike').onchange=e=>bikeName=e.target.value;
+document.getElementById('dress').onclick=()=>{dress=(dress+1)%4;alert(['Baggy jeans','Oversized tee','Kerala streetwear','Rider jacket'][dress])};
+
+function road(){let horizon=H*.43; x.fillStyle='#87cce0';x.fillRect(0,0,W,horizon);
+x.fillStyle='#4f9b49';x.fillRect(0,horizon,W,H-horizon);
+x.fillStyle='#666';x.beginPath();x.moveTo(W*.44,horizon);x.lineTo(W*.56,horizon);x.lineTo(W*.88,H);x.lineTo(W*.12,H);x.closePath();x.fill();
+x.strokeStyle='#fff';x.lineWidth=5;x.setLineDash([30,28]);x.lineDashOffset=-(t*speed*.8%58);x.beginPath();x.moveTo(W/2,horizon);x.lineTo(W/2,H);x.stroke();x.setLineDash([]);
+for(let i=0;i<8;i++){let px=(i*173-t*speed*.5)%W;let py=horizon+35+(i%3)*30;x.fillStyle='#236b36';x.beginPath();x.arc(px,py,18,0,7);x.fill();x.fillRect(px-3,py,6,45)}}
+function drawBike(){let cx=W/2+steer*55, cy=H*.73; x.save();x.translate(cx,cy);
+x.fillStyle='#111';x.beginPath();x.ellipse(0,42,19,38,0,0,7);x.fill();x.beginPath();x.ellipse(0,-42,19,38,0,0,7);x.fill();
+x.strokeStyle='#bbb';x.lineWidth=7;x.beginPath();x.moveTo(0,-30);x.lineTo(0,30);x.stroke();
+let body=dress===0?'#e53935':dress===1?'#222':dress===2?'#168f56':'#1565c0';x.fillStyle=body;x.beginPath();x.roundRect(-30,-12,60,48,13);x.fill();
+x.fillStyle='#ddd';x.beginPath();x.arc(0,-35,17,0,7);x.fill();x.fillStyle='#111';x.fillRect(-13,-39,26,7);
+x.fillStyle='#eee';x.fillRect(-28,-5,56,4);x.restore()}
+function hud(){document.getElementById('speed').textContent=Math.round(speed);document.getElementById('place').textContent=places[Math.floor(t/800)%places.length]}
+function loop(){t++;let gas=throttle||keys.w||keys.arrowup, br=braking||keys.s||keys.arrowdown;let st=steer||((keys.a||keys.arrowleft)?-1:0)||((keys.d||keys.arrowright)?1:0);
+if(gas)speed+=.13;if(br)speed-=.28;speed-=.018;speed=Math.max(0,Math.min(210,speed));steer=st;
+x.clearRect(0,0,W,H);road();drawBike();hud();requestAnimationFrame(loop)}loop();
+</script>
+</body></html>
